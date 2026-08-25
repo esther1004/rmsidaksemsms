@@ -25,10 +25,10 @@
   .sub{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden}
   .picker{padding:14px}
-  input[type=file]{display:none}
+  input[type=file]{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
   .pickBtn{
-    display:flex;align-items:center;justify-content:center;min-height:58px;border-radius:16px;
-    background:#eef7ff;color:#081018;font-weight:900;font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;border-radius:16px;border:0;
+    background:#eef7ff;color:#081018;font-weight:900;font-size:17px;cursor:pointer;appearance:none;-webkit-appearance:none;
   }
   .hint{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 2px 0}
 
@@ -92,11 +92,11 @@
   </div>
 
   <section class="card picker">
-    <label class="pickBtn" for="files">📷 사진 여러 장 선택하기</label>
-    <input id="files" type="file" accept="image/jpeg,image/jpg,image/heic,image/heif" multiple />
+    <button class="pickBtn" id="pickBtn" type="button">📷 사진 여러 장 선택하기</button>
+    <input id="files" type="file" accept="image/*" multiple />
 
     <div class="hint">
-      20,000장 이상도 처리 자체는 가능하도록 최적화했지만, 실제 최대 선택 수와 안정성은 iPhone 모델·iOS·Safari 메모리 상태에 따라 달라질 수 있습니다.
+      대량 사진을 순차 처리하도록 최적화했지만, 실제 최대 선택 수와 안정성은 iPhone 모델·iOS·Safari/Chrome의 사진 선택기 및 메모리 상태에 따라 달라질 수 있습니다.
       GPS 추출은 JPEG/JPG에서 가장 안정적이며, HEIC/HEIF는 브라우저에서 위치 메타데이터를 직접 읽지 못할 수 있습니다.
     </div>
 
@@ -159,7 +159,7 @@
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const fileInput=$('files'), loading=$('loading'), progressFill=$('progressFill'), loadingSub=$('loadingSub');
+  const fileInput=$('files'), pickBtn=$('pickBtn'), loading=$('loading'), progressFill=$('progressFill'), loadingSub=$('loadingSub');
   const processedCount=$('processedCount'), gpsCount=$('gpsCount'), elapsed=$('elapsed'), pulse=$('pulse'), cancelBtn=$('cancelBtn');
   const stats=$('stats'), playBtn=$('play'), resetBtn=$('reset'), speedSel=$('speed'), scrub=$('scrub');
   const canvas=$('canvas'), ctx=canvas.getContext('2d'), photoCard=$('photoCard'), currentPhoto=$('currentPhoto'), caption=$('caption'), badge=$('badge');
@@ -168,7 +168,22 @@
   let points=[], selectedFiles=[], progress=0, playing=false, raf=null, lastTs=0;
   let cancelRequested=false, loadingTimer=null, pulseTimer=null, currentObjectURL=null;
 
+  // iOS Safari/Chrome 호환: 사용자 탭 이벤트 안에서 즉시 사진 선택기를 엽니다.
+  pickBtn.addEventListener('click', () => {
+    // 같은 사진을 다시 선택해도 change 이벤트가 발생하도록 초기화
+    fileInput.value = '';
+    try {
+      if (typeof fileInput.showPicker === 'function') fileInput.showPicker();
+      else fileInput.click();
+    } catch (e) {
+      fileInput.click();
+    }
+  });
+
   fileInput.addEventListener('change', e => handleFiles(e.target.files));
+  fileInput.addEventListener('cancel', () => {
+    loadingSub.textContent='사진 선택이 취소되었습니다.';
+  });
 
   cancelBtn.addEventListener('click', () => {
     cancelRequested=true;
