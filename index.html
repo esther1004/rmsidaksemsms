@@ -5,68 +5,119 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<title>Photo Route Animator · iPhone</title>
+<title>Photo Route Animator</title>
 <style>
   :root{
-    --bg:#0a0d11; --panel:#141922; --panel2:#1b2230; --text:#f7f9fc; --muted:#98a4b3;
-    --accent:#7dd3fc; --border:#2b3543; --good:#86efac; --bad:#fda4af;
+    --bg:#0a0d11; --panel:#141922; --text:#f7f9fc; --muted:#9aa6b4;
+    --accent:#7dd3fc; --border:#2b3543; --danger:#ff3b30; --good:#86efac; --bad:#fda4af;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Apple SD Gothic Neo","Noto Sans KR",sans-serif}
   body{min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
-  .wrap{max-width:980px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 14px 32px}
-  h1{font-size:32px;letter-spacing:-.04em;margin:4px 0 6px}
+  .wrap{max-width:980px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 14px 32px}
+
+  .privacy{
+    background:#190d0d;border:1px solid #7f1d1d;color:#ff4d4f;border-radius:16px;
+    padding:13px 14px;margin:0 0 16px;font-weight:900;font-size:15px;line-height:1.45;text-align:center;
+  }
+
+  h1{font-size:31px;letter-spacing:-.04em;margin:4px 0 6px}
   .sub{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden}
   .picker{padding:14px}
   input[type=file]{display:none}
   .pickBtn{
-    display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:16px;
-    background:#eef7ff;color:#081018;font-weight:800;font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;min-height:58px;border-radius:16px;
+    background:#eef7ff;color:#081018;font-weight:900;font-size:17px;cursor:pointer;
   }
-  .hint{font-size:12px;color:var(--muted);line-height:1.55;margin:10px 2px 0}
-  .progressWrap{display:none;margin-top:12px}
-  .progressBar{height:8px;background:#202938;border-radius:999px;overflow:hidden}
+  .hint{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 2px 0}
+
+  .loading{
+    display:none;margin-top:14px;padding:14px;border-radius:16px;background:#0f151d;border:1px solid #263140;
+  }
+  .loadingTop{display:flex;align-items:center;gap:11px}
+  .spinner{
+    width:24px;height:24px;border:3px solid rgba(255,255,255,.18);border-top-color:var(--accent);
+    border-radius:50%;animation:spin .75s linear infinite;flex:0 0 auto;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loadingTitle{font-weight:850;font-size:14px}
+  .loadingSub{font-size:12px;color:var(--muted);margin-top:3px}
+  .pulse{display:inline-block;min-width:18px}
+  .progressBar{height:9px;background:#202938;border-radius:999px;overflow:hidden;margin-top:12px}
   .progressFill{height:100%;width:0;background:var(--accent);transition:width .12s linear}
-  .progressText{font-size:12px;color:var(--muted);margin-top:7px}
-  .stats{display:none;margin-top:12px;padding:10px 12px;border-radius:14px;background:#10151d;font-size:13px;line-height:1.6}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+  .metric{background:#131b26;border-radius:11px;padding:8px 9px}
+  .metric b{display:block;font-size:15px}
+  .metric span{font-size:10px;color:var(--muted)}
+  .cancelBtn{margin-top:10px;width:100%;background:#241a1d;color:#ffb4bc;border:1px solid #503039;border-radius:12px;padding:9px;font-weight:750}
+
+  .stats{display:none;margin-top:12px;padding:11px 12px;border-radius:14px;background:#10151d;font-size:13px;line-height:1.65}
+
   .stage{margin-top:14px;position:relative}
   canvas{display:block;width:100%;height:58vh;min-height:440px;max-height:680px;background:
       radial-gradient(circle at 25% 20%,rgba(125,211,252,.08),transparent 28%),
       linear-gradient(180deg,#0d131b,#111927);}
-  .hud{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:end;gap:10px;pointer-events:none}
+  .hud{position:absolute;left:12px;right:12px;bottom:88px;display:flex;justify-content:space-between;align-items:end;gap:10px;pointer-events:none}
   .photoCard{width:min(300px,62vw);background:rgba(9,12,17,.82);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:8px;opacity:0;transform:translateY(6px);transition:.18s}
   .photoCard.show{opacity:1;transform:none}
   .photoCard img{width:100%;max-height:220px;object-fit:cover;border-radius:11px;display:block;background:#202938}
   .caption{font-size:12px;color:#e4ebf3;margin-top:7px;line-height:1.45}
   .badge{background:rgba(9,12,17,.78);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:8px 10px;font-size:12px;color:#dfe8f2}
+
   .controls{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:12px;background:#111720;border-top:1px solid var(--border)}
   button,select{border:1px solid #344154;border-radius:13px;background:#202838;color:var(--text);font-weight:750;padding:11px 12px}
   button.primary{background:#edf7ff;color:#081018;border-color:#edf7ff}
   button:disabled{opacity:.4}
   .scrubWrap{padding:0 12px 12px;background:#111720}
   input[type=range]{width:100%}
-  .list{max-height:260px;overflow:auto;border-top:1px solid var(--border)}
-  .item{display:grid;grid-template-columns:48px 1fr;gap:9px;padding:9px 12px;align-items:center}
-  .thumb{width:48px;height:48px;border-radius:10px;object-fit:cover;background:#212b39}
-  .name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .small{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bad{color:var(--bad)}
+
+  .infoGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px;background:#0e141d;border-top:1px solid var(--border)}
+  .info{background:#141d29;padding:10px;border-radius:12px}
+  .info strong{display:block;font-size:16px}
+  .info span{font-size:11px;color:var(--muted)}
 </style>
 </head>
 <body>
 <div class="wrap">
+
+  <div class="privacy">
+    🔒 사진은 이 기기에서만 처리됩니다. 사진과 위치정보는 서버로 전송되거나 저장되지 않습니다.
+  </div>
+
   <h1>Photo Route Animator</h1>
-  <div class="sub">아이폰 사진을 한 번에 여러 장 선택하면, 선택 직후 GPS와 촬영시간을 자동 분석해 이동 경로를 만듭니다. 사진은 서버로 업로드되지 않습니다.</div>
+  <div class="sub">
+    대량 사진 선택에 맞춰 메모리를 아끼도록 설계했습니다. 사진 전체를 한꺼번에 디코딩하지 않고,
+    EXIF 메타데이터를 한 장씩 읽고 즉시 버립니다.
+  </div>
 
   <section class="card picker">
     <label class="pickBtn" for="files">📷 사진 여러 장 선택하기</label>
     <input id="files" type="file" accept="image/jpeg,image/jpg,image/heic,image/heif" multiple />
-    <div class="hint">iPhone 사진 선택창에서 가능한 만큼 여러 장을 선택하세요. 웹페이지는 보안상 사진 보관함 전체를 자동 선택할 수는 없습니다.</div>
 
-    <div class="progressWrap" id="progressWrap">
+    <div class="hint">
+      20,000장 이상도 처리 자체는 가능하도록 최적화했지만, 실제 최대 선택 수와 안정성은 iPhone 모델·iOS·Safari 메모리 상태에 따라 달라질 수 있습니다.
+      GPS 추출은 JPEG/JPG에서 가장 안정적이며, HEIC/HEIF는 브라우저에서 위치 메타데이터를 직접 읽지 못할 수 있습니다.
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="loadingTop">
+        <div class="spinner"></div>
+        <div>
+          <div class="loadingTitle">로딩중<span class="pulse" id="pulse">...</span></div>
+          <div class="loadingSub" id="loadingSub">사진 메타데이터를 분석하고 있습니다.</div>
+        </div>
+      </div>
+
       <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
-      <div class="progressText" id="progressText">분석 준비 중…</div>
+
+      <div class="metrics">
+        <div class="metric"><b id="processedCount">0</b><span>처리 완료</span></div>
+        <div class="metric"><b id="gpsCount">0</b><span>GPS 발견</span></div>
+        <div class="metric"><b id="elapsed">0초</b><span>경과 시간</span></div>
+      </div>
+
+      <button class="cancelBtn" id="cancelBtn">분석 중지</button>
     </div>
 
     <div class="stats" id="stats"></div>
@@ -93,22 +144,36 @@
         <option value="4">4×</option>
       </select>
     </div>
-    <div class="scrubWrap"><input id="scrub" type="range" min="0" max="1000" value="0" disabled /></div>
 
-    <div class="list" id="list"></div>
+    <div class="scrubWrap">
+      <input id="scrub" type="range" min="0" max="1000" value="0" disabled />
+    </div>
+
+    <div class="infoGrid">
+      <div class="info"><strong id="selectedInfo">0</strong><span>선택한 사진</span></div>
+      <div class="info"><strong id="routeInfo">0</strong><span>경로에 사용된 사진</span></div>
+    </div>
   </section>
 </div>
 
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  const fileInput = $('files'), progressWrap=$('progressWrap'), progressFill=$('progressFill'), progressText=$('progressText');
-  const stats=$('stats'), list=$('list'), playBtn=$('play'), resetBtn=$('reset'), speedSel=$('speed'), scrub=$('scrub');
+  const fileInput=$('files'), loading=$('loading'), progressFill=$('progressFill'), loadingSub=$('loadingSub');
+  const processedCount=$('processedCount'), gpsCount=$('gpsCount'), elapsed=$('elapsed'), pulse=$('pulse'), cancelBtn=$('cancelBtn');
+  const stats=$('stats'), playBtn=$('play'), resetBtn=$('reset'), speedSel=$('speed'), scrub=$('scrub');
   const canvas=$('canvas'), ctx=canvas.getContext('2d'), photoCard=$('photoCard'), currentPhoto=$('currentPhoto'), caption=$('caption'), badge=$('badge');
+  const selectedInfo=$('selectedInfo'), routeInfo=$('routeInfo');
 
-  let points=[], allResults=[], progress=0, playing=false, raf=null, lastTs=0;
+  let points=[], selectedFiles=[], progress=0, playing=false, raf=null, lastTs=0;
+  let cancelRequested=false, loadingTimer=null, pulseTimer=null, currentObjectURL=null;
 
-  fileInput.addEventListener('change', e => handleFiles([...e.target.files]));
+  fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+  cancelBtn.addEventListener('click', () => {
+    cancelRequested=true;
+    loadingSub.textContent='중지 요청을 처리하고 있습니다…';
+  });
 
   playBtn.addEventListener('click', () => {
     if(points.length<2) return;
@@ -118,148 +183,217 @@
       if(progress>=1) progress=0;
       lastTs=performance.now();
       raf=requestAnimationFrame(tick);
-    } else if(raf){ cancelAnimationFrame(raf); }
+    } else if(raf) cancelAnimationFrame(raf);
   });
 
   resetBtn.addEventListener('click', () => {
-    playing=false; progress=0; scrub.value=0; playBtn.textContent='▶ 재생'; updateCurrent(); draw();
+    playing=false; progress=0; scrub.value=0; playBtn.textContent='▶ 재생';
+    updateCurrent(); draw();
   });
 
   scrub.addEventListener('input', () => {
-    progress=Number(scrub.value)/1000; updateCurrent(); draw();
+    progress=Number(scrub.value)/1000;
+    updateCurrent(); draw();
   });
 
   function tick(ts){
     if(!playing) return;
     const dt=Math.min(50,ts-lastTs); lastTs=ts;
-    const duration=Math.max(5000,Math.min(22000,3000+points.length*900));
+    const duration=Math.max(5000,Math.min(24000,3000+points.length*180));
     progress += dt/duration*Number(speedSel.value);
     if(progress>=1){progress=1;playing=false;playBtn.textContent='▶ 재생';}
     else raf=requestAnimationFrame(tick);
-    scrub.value=Math.round(progress*1000); updateCurrent(); draw();
+    scrub.value=Math.round(progress*1000);
+    updateCurrent();
+    draw();
   }
 
-  async function handleFiles(files){
-    cleanupUrls();
-    points=[]; allResults=[]; list.innerHTML='';
+  async function handleFiles(fileList){
+    cancelRequested=false;
+    playing=false;
+    if(raf) cancelAnimationFrame(raf);
+    revokeCurrentPreview();
+
+    // File 객체 자체는 파일 내용을 메모리에 올리지 않는 "참조"입니다.
+    selectedFiles = Array.from(fileList);
+    points = [];
+    progress=0;
+    selectedInfo.textContent=selectedFiles.length.toLocaleString();
+    routeInfo.textContent='0';
+    playBtn.disabled=true;
+    resetBtn.disabled=true;
+    scrub.disabled=true;
     stats.style.display='none';
-    progressWrap.style.display='block';
+
+    if(!selectedFiles.length) return;
+
+    loading.style.display='block';
     progressFill.style.width='0%';
-    progressText.textContent=`${files.length}장 분석 준비 중…`;
+    processedCount.textContent='0';
+    gpsCount.textContent='0';
+    loadingSub.textContent='사진 메타데이터를 한 장씩 분석하고 있습니다.';
 
-    const supported = files.filter(f => /image\/(jpeg|heic|heif)/i.test(f.type) || /\.(jpe?g|heic|heif)$/i.test(f.name));
-    if(!supported.length){
-      progressText.textContent='지원되는 사진이 없습니다.';
-      return;
-    }
+    const started=performance.now();
+    loadingTimer=setInterval(()=>{
+      elapsed.textContent=Math.floor((performance.now()-started)/1000).toLocaleString()+'초';
+    },250);
 
-    const CONCURRENCY=4;
-    let done=0, cursor=0;
+    let dots=0;
+    pulseTimer=setInterval(()=>{
+      dots=(dots+1)%4;
+      pulse.textContent='.'.repeat(dots||1);
+    },350);
 
-    async function worker(){
-      while(cursor<supported.length){
-        const idx=cursor++;
-        const file=supported[idx];
-        let url=null;
-        try{
-          url=URL.createObjectURL(file);
-          const exif=await parseImageMeta(file);
-          allResults[idx]={file,url,...exif};
-        }catch(err){
-          allResults[idx]={file,url,error:err.message};
+    let processed=0, gpsFound=0, unsupported=0, errors=0;
+
+    // 의도적으로 순차 처리: 동시에 수십 장을 arrayBuffer로 만들지 않음.
+    for(let i=0;i<selectedFiles.length;i++){
+      if(cancelRequested) break;
+
+      const file=selectedFiles[i];
+      try{
+        const meta=await parseImageMetaLowMemory(file);
+
+        if(Number.isFinite(meta.lat) && Number.isFinite(meta.lng)){
+          points.push({
+            fileIndex:i,
+            lat:meta.lat,
+            lng:meta.lng,
+            date:meta.date || new Date(file.lastModified || Date.now()),
+            name:file.name
+          });
+          gpsFound++;
+        } else if(meta.unsupported){
+          unsupported++;
         }
-        done++;
-        const pct=Math.round(done/supported.length*100);
-        progressFill.style.width=pct+'%';
-        progressText.textContent=`분석 중 ${done}/${supported.length} (${pct}%)`;
-        await new Promise(r=>setTimeout(r,0));
+      }catch(e){
+        errors++;
+      }
+
+      processed++;
+      const pct=processed/selectedFiles.length*100;
+      progressFill.style.width=pct.toFixed(2)+'%';
+      processedCount.textContent=processed.toLocaleString();
+      gpsCount.textContent=gpsFound.toLocaleString();
+
+      if(processed % 10 === 0 || processed === selectedFiles.length){
+        loadingSub.textContent=`${processed.toLocaleString()} / ${selectedFiles.length.toLocaleString()}장 분석 중`;
+        // UI가 계속 그려지도록 이벤트 루프에 양보
+        await new Promise(requestAnimationFrame);
       }
     }
 
-    await Promise.all(Array.from({length:Math.min(CONCURRENCY,supported.length)},worker));
+    clearInterval(loadingTimer); loadingTimer=null;
+    clearInterval(pulseTimer); pulseTimer=null;
 
-    const located=allResults.filter(x=>x && Number.isFinite(x.lat) && Number.isFinite(x.lng));
-    located.sort((a,b)=>(a.date?.getTime()||0)-(b.date?.getTime()||0));
-    points=located;
+    points.sort((a,b)=>(a.date?.getTime()||0)-(b.date?.getTime()||0));
+    routeInfo.textContent=points.length.toLocaleString();
 
-    progressFill.style.width='100%';
-    progressText.textContent=`완료 · 위치 확인 ${located.length}/${supported.length}장`;
-
+    loading.style.display='none';
     stats.style.display='block';
-    stats.innerHTML=`총 <b>${supported.length}</b>장 · GPS 확인 <b>${located.length}</b>장 · 제외 <b>${supported.length-located.length}</b>장`;
 
-    renderList();
+    const stopped=cancelRequested;
+    stats.innerHTML =
+      `${stopped?'분석이 중지되었습니다.':'분석 완료.'} `+
+      `처리 <b>${processed.toLocaleString()}</b>장 · `+
+      `GPS 확인 <b>${points.length.toLocaleString()}</b>장`+
+      (unsupported?` · HEIC/HEIF 등 미지원 <b>${unsupported.toLocaleString()}</b>장`:'')+
+      (errors?` · 오류 <b>${errors.toLocaleString()}</b>장`:'');
+
     playBtn.disabled=points.length<2;
     resetBtn.disabled=points.length<1;
     scrub.disabled=points.length<2;
     progress=0;
+
     updateCurrent();
     resizeCanvas();
   }
 
-  function renderList(){
-    const frag=document.createDocumentFragment();
-    allResults.forEach(r=>{
-      if(!r) return;
-      const item=document.createElement('div'); item.className='item';
-      const img=document.createElement('img'); img.className='thumb'; if(r.url) img.src=r.url;
-      const meta=document.createElement('div');
-      const name=document.createElement('div'); name.className='name'; name.textContent=r.file.name;
-      const small=document.createElement('div'); small.className='small';
-      if(Number.isFinite(r.lat)&&Number.isFinite(r.lng)){
-        small.textContent=`${r.date?formatDate(r.date):'시간 없음'} · ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
-      } else { small.classList.add('bad'); small.textContent='GPS 정보 없음 또는 HEIC 메타데이터 미지원'; }
-      meta.append(name,small); item.append(img,meta); frag.append(item);
-    });
-    list.replaceChildren(frag);
+  async function parseImageMetaLowMemory(file){
+    const isJPEG=/image\/jpeg/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+
+    if(!isJPEG){
+      return {
+        lat:null, lng:null,
+        date:new Date(file.lastModified || Date.now()),
+        unsupported:true
+      };
+    }
+
+    // EXIF APP1은 보통 JPEG 앞부분에 있으므로 512KB만 읽음.
+    // 사진 전체(수 MB~수십 MB)를 arrayBuffer로 만들지 않음.
+    const MAX_HEADER=512*1024;
+    const slice=file.slice(0, Math.min(file.size, MAX_HEADER));
+    const buf=await slice.arrayBuffer();
+
+    try{
+      return parseJpegExifBuffer(buf, file);
+    } finally {
+      // buf는 함수가 끝나면 참조가 사라져 GC 대상이 됨.
+    }
   }
 
-  function cleanupUrls(){
-    for(const r of allResults) if(r?.url) URL.revokeObjectURL(r.url);
-  }
-
-  async function parseImageMeta(file){
-    if(/jpe?g$/i.test(file.name) || /image\/jpeg/i.test(file.type)) return parseJpegExif(file);
-    // Safari may expose HEIC file blobs, but pure JS EXIF parsing varies. Graceful fallback.
-    return {lat:null,lng:null,date:new Date(file.lastModified||Date.now())};
-  }
-
-  async function parseJpegExif(file){
-    const buf=await file.arrayBuffer(), dv=new DataView(buf);
+  function parseJpegExifBuffer(buf,file){
+    const dv=new DataView(buf);
     if(dv.byteLength<4 || dv.getUint16(0,false)!==0xFFD8) throw new Error('JPEG 아님');
+
     let offset=2, result={lat:null,lng:null,date:null};
     while(offset+4<dv.byteLength){
       if(dv.getUint8(offset)!==0xFF){offset++;continue;}
       const marker=dv.getUint8(offset+1); offset+=2;
       if(marker===0xD9||marker===0xDA) break;
       if(offset+2>dv.byteLength) break;
+
       const len=dv.getUint16(offset,false);
-      if(len<2||offset+len>dv.byteLength) break;
-      if(marker===0xE1&&len>=8){
+      if(len<2 || offset+len>dv.byteLength) break;
+
+      if(marker===0xE1 && len>=8){
         const start=offset+2;
-        const sig=String.fromCharCode(dv.getUint8(start),dv.getUint8(start+1),dv.getUint8(start+2),dv.getUint8(start+3));
-        if(sig==='Exif'){ result={...result,...parseTiff(dv,start+6)}; break; }
+        if(start+6<=dv.byteLength){
+          const sig=String.fromCharCode(
+            dv.getUint8(start),dv.getUint8(start+1),
+            dv.getUint8(start+2),dv.getUint8(start+3)
+          );
+          if(sig==='Exif'){
+            result={...result,...parseTiff(dv,start+6)};
+            break;
+          }
+        }
       }
       offset+=len;
     }
-    if(!result.date) result.date=new Date(file.lastModified||Date.now());
+
+    if(!result.date) result.date=new Date(file.lastModified || Date.now());
     return result;
   }
 
   function parseTiff(dv,tiff){
-    const little=dv.getUint16(tiff,false)===0x4949, u16=o=>dv.getUint16(o,little), u32=o=>dv.getUint32(o,little);
-    if(u16(tiff+2)!==42) throw new Error('잘못된 TIFF');
-    const out={lat:null,lng:null,date:null}, ifd0=tiff+u32(tiff+4);
+    if(tiff+8>dv.byteLength) return {lat:null,lng:null,date:null};
+
+    const little=dv.getUint16(tiff,false)===0x4949;
+    const u16=o=>dv.getUint16(o,little), u32=o=>dv.getUint32(o,little);
+    if(u16(tiff+2)!==42) return {lat:null,lng:null,date:null};
+
+    const out={lat:null,lng:null,date:null};
+    const ifd0=tiff+u32(tiff+4);
     let exifPtr=null,gpsPtr=null;
 
     readIFD(ifd0,(tag,type,count,valOff)=>{
       if(tag===0x8769) exifPtr=tiff+valueAsUint(type,valOff);
       if(tag===0x8825) gpsPtr=tiff+valueAsUint(type,valOff);
-      if(tag===0x0132){const d=parseExifDate(readAscii(type,count,valOff)); if(d) out.date=d;}
+      if(tag===0x0132){
+        const d=parseExifDate(readAscii(type,count,valOff));
+        if(d) out.date=d;
+      }
     });
+
     if(exifPtr) readIFD(exifPtr,(tag,type,count,valOff)=>{
-      if(tag===0x9003||tag===0x9004){const d=parseExifDate(readAscii(type,count,valOff)); if(d) out.date=d;}
+      if(tag===0x9003||tag===0x9004){
+        const d=parseExifDate(readAscii(type,count,valOff));
+        if(d) out.date=d;
+      }
     });
+
     if(gpsPtr){
       let latRef,lngRef,lat,lng;
       readIFD(gpsPtr,(tag,type,count,valOff)=>{
@@ -268,38 +402,59 @@
         if(tag===3) lngRef=readAscii(type,count,valOff);
         if(tag===4) lng=readRationals(type,count,valOff);
       });
-      if(lat?.length>=3&&lng?.length>=3){
+
+      if(lat?.length>=3 && lng?.length>=3){
         out.lat=dms(lat)*(latRef?.trim().startsWith('S')?-1:1);
         out.lng=dms(lng)*(lngRef?.trim().startsWith('W')?-1:1);
       }
     }
     return out;
 
+    function safeRange(o,n=1){return o>=0 && o+n<=dv.byteLength}
     function readIFD(off,cb){
-      if(!Number.isFinite(off)||off<0||off+2>dv.byteLength) return;
+      if(!Number.isFinite(off)||!safeRange(off,2)) return;
       const n=u16(off);
       for(let i=0;i<n;i++){
-        const e=off+2+i*12; if(e+12>dv.byteLength) break;
+        const e=off+2+i*12;
+        if(!safeRange(e,12)) break;
         cb(u16(e),u16(e+2),u32(e+4),e+8);
       }
     }
     function typeSize(t){return({1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8})[t]||1}
-    function dataOffset(type,count,valOff){return typeSize(type)*count<=4?valOff:tiff+u32(valOff)}
-    function valueAsUint(type,valOff){return type===3?u16(valOff):u32(valOff)}
+    function dataOffset(type,count,valOff){
+      const bytes=typeSize(type)*count;
+      if(bytes<=4) return valOff;
+      if(!safeRange(valOff,4)) return -1;
+      return tiff+u32(valOff);
+    }
+    function valueAsUint(type,valOff){
+      if(type===3 && safeRange(valOff,2)) return u16(valOff);
+      if(safeRange(valOff,4)) return u32(valOff);
+      return 0;
+    }
     function readAscii(type,count,valOff){
-      const o=dataOffset(type,count,valOff); let s='';
-      for(let i=0;i<count&&o+i<dv.byteLength;i++){const c=dv.getUint8(o+i); if(!c) break; s+=String.fromCharCode(c);}
+      const o=dataOffset(type,count,valOff);
+      if(o<0) return '';
+      let s='';
+      for(let i=0;i<count && safeRange(o+i,1);i++){
+        const c=dv.getUint8(o+i);
+        if(!c) break;
+        s+=String.fromCharCode(c);
+      }
       return s;
     }
     function readRationals(type,count,valOff){
-      const o=dataOffset(type,count,valOff),arr=[]; if(type!==5&&type!==10) return arr;
+      const o=dataOffset(type,count,valOff),arr=[];
+      if(o<0 || (type!==5&&type!==10)) return arr;
       for(let i=0;i<count;i++){
-        const p=o+i*8; if(p+8>dv.byteLength) break;
+        const p=o+i*8;
+        if(!safeRange(p,8)) break;
         let num,den;
         if(type===10){num=dv.getInt32(p,little);den=dv.getInt32(p+4,little)}
         else{num=u32(p);den=u32(p+4)}
         arr.push(den?num/den:0);
-      } return arr;
+      }
+      return arr;
     }
   }
 
@@ -311,57 +466,144 @@
   }
 
   function resizeCanvas(){
-    const rect=canvas.getBoundingClientRect(), dpr=Math.min(devicePixelRatio||1,2);
-    canvas.width=Math.round(rect.width*dpr); canvas.height=Math.round(rect.height*dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0); draw();
+    const rect=canvas.getBoundingClientRect();
+    const dpr=Math.min(devicePixelRatio||1,2);
+    canvas.width=Math.round(rect.width*dpr);
+    canvas.height=Math.round(rect.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
   }
   addEventListener('resize',resizeCanvas);
 
   function projection(){
     const w=canvas.clientWidth,h=canvas.clientHeight;
     if(!points.length) return null;
+
     const lats=points.map(p=>p.lat),lngs=points.map(p=>p.lng);
     let minLat=Math.min(...lats),maxLat=Math.max(...lats),minLng=Math.min(...lngs),maxLng=Math.max(...lngs);
-    if(minLat===maxLat){minLat-=.001;maxLat+=.001} if(minLng===maxLng){minLng-=.001;maxLng+=.001}
-    const pad=Math.min(w,h)*.12+26, mean=(minLat+maxLat)/2*Math.PI/180, ls=Math.cos(mean);
-    const xs=(maxLng-minLng)*ls, ys=maxLat-minLat, scale=Math.min((w-pad*2)/xs,(h-pad*2)/ys);
-    return (lat,lng)=>({x:(w-xs*scale)/2+(lng-minLng)*ls*scale,y:h-((h-ys*scale)/2+(lat-minLat)*scale)});
+    if(minLat===maxLat){minLat-=.001;maxLat+=.001}
+    if(minLng===maxLng){minLng-=.001;maxLng+=.001}
+
+    const pad=Math.min(w,h)*.12+26;
+    const mean=(minLat+maxLat)/2*Math.PI/180;
+    const ls=Math.cos(mean);
+    const xs=(maxLng-minLng)*ls, ys=maxLat-minLat;
+    const scale=Math.min((w-pad*2)/xs,(h-pad*2)/ys);
+
+    return (lat,lng)=>({
+      x:(w-xs*scale)/2+(lng-minLng)*ls*scale,
+      y:h-((h-ys*scale)/2+(lat-minLat)*scale)
+    });
   }
 
   function draw(){
-    const w=canvas.clientWidth,h=canvas.clientHeight; ctx.clearRect(0,0,w,h);
-    ctx.strokeStyle='rgba(255,255,255,.035)';ctx.lineWidth=1;
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+
+    ctx.strokeStyle='rgba(255,255,255,.035)';
+    ctx.lineWidth=1;
     for(let x=0;x<w;x+=44){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
     for(let y=0;y<h;y+=44){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+
     if(!points.length){
-      ctx.fillStyle='rgba(255,255,255,.42)';ctx.font='600 15px -apple-system';ctx.textAlign='center';
-      ctx.fillText('사진을 선택하면 경로가 표시됩니다.',w/2,h/2);return;
+      ctx.fillStyle='rgba(255,255,255,.42)';
+      ctx.font='600 15px -apple-system';
+      ctx.textAlign='center';
+      ctx.fillText('GPS가 있는 사진이 분석되면 경로가 표시됩니다.',w/2,h/2);
+      return;
     }
-    const project=projection(), s=points.map(p=>project(p.lat,p.lng));
-    ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=4;
-    ctx.beginPath();s.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+
+    const project=projection();
+    const s=points.map(p=>project(p.lat,p.lng));
+
+    ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.strokeStyle='rgba(255,255,255,.22)';
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    s.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.stroke();
 
     if(s.length>1){
       const seg=getSeg(progress);
-      ctx.strokeStyle='rgba(125,211,252,.95)';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(s[0].x,s[0].y);
+      ctx.strokeStyle='rgba(125,211,252,.95)';
+      ctx.lineWidth=5;
+      ctx.beginPath();
+      ctx.moveTo(s[0].x,s[0].y);
       for(let i=1;i<=seg.index;i++) ctx.lineTo(s[i].x,s[i].y);
-      if(seg.index<s.length-1){const a=s[seg.index],b=s[seg.index+1];ctx.lineTo(a.x+(b.x-a.x)*seg.local,a.y+(b.y-a.y)*seg.local)}
+      if(seg.index<s.length-1){
+        const a=s[seg.index],b=s[seg.index+1];
+        ctx.lineTo(a.x+(b.x-a.x)*seg.local,a.y+(b.y-a.y)*seg.local);
+      }
       ctx.stroke();
     }
-    s.forEach((p,i)=>{ctx.beginPath();ctx.fillStyle=i===0?'#86efac':(i===s.length-1?'#fda4af':'#fff');ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill()});
-    const m=moving(s,progress); if(m){ctx.beginPath();ctx.fillStyle='rgba(125,211,252,.18)';ctx.arc(m.x,m.y,17,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.fillStyle='#7dd3fc';ctx.arc(m.x,m.y,8,0,Math.PI*2);ctx.fill()}
+
+    // 점이 수만 개면 전부 큰 원을 그리는 대신 일부만 샘플링
+    const step=Math.max(1,Math.floor(s.length/1500));
+    for(let i=0;i<s.length;i+=step){
+      const p=s[i];
+      ctx.beginPath();
+      ctx.fillStyle='#fff';
+      ctx.arc(p.x,p.y,3,0,Math.PI*2);
+      ctx.fill();
+    }
+
+    const m=moving(s,progress);
+    if(m){
+      ctx.beginPath();ctx.fillStyle='rgba(125,211,252,.18)';ctx.arc(m.x,m.y,17,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.fillStyle='#7dd3fc';ctx.arc(m.x,m.y,8,0,Math.PI*2);ctx.fill();
+    }
   }
 
-  function getSeg(t){const total=points.length-1,f=Math.max(0,Math.min(1,t))*total,index=Math.min(total-1,Math.floor(f));return{index,local:f-index}}
-  function moving(s,t){if(!s.length)return null;if(s.length===1)return s[0];const g=getSeg(t),a=s[g.index],b=s[g.index+1];return{x:a.x+(b.x-a.x)*g.local,y:a.y+(b.y-a.y)*g.local}}
+  function getSeg(t){
+    const total=points.length-1;
+    const f=Math.max(0,Math.min(1,t))*total;
+    const index=Math.min(total-1,Math.floor(f));
+    return {index,local:f-index};
+  }
+
+  function moving(s,t){
+    if(!s.length)return null;
+    if(s.length===1)return s[0];
+    const g=getSeg(t),a=s[g.index],b=s[g.index+1];
+    return{x:a.x+(b.x-a.x)*g.local,y:a.y+(b.y-a.y)*g.local};
+  }
+
+  function revokeCurrentPreview(){
+    if(currentObjectURL){
+      URL.revokeObjectURL(currentObjectURL);
+      currentObjectURL=null;
+    }
+  }
 
   function updateCurrent(){
-    if(!points.length){photoCard.classList.remove('show');badge.textContent='대기 중';return}
-    const idx=points.length===1?0:Math.min(points.length-1,Math.round(progress*(points.length-1))),p=points[idx];
-    currentPhoto.src=p.url;caption.textContent=`${idx+1}/${points.length} · ${p.date?formatDate(p.date):p.file.name}`;
-    photoCard.classList.add('show');badge.textContent=`${idx+1} / ${points.length}`;
+    if(!points.length){
+      revokeCurrentPreview();
+      photoCard.classList.remove('show');
+      badge.textContent='대기 중';
+      return;
+    }
+
+    const idx=points.length===1?0:Math.min(points.length-1,Math.round(progress*(points.length-1)));
+    const p=points[idx];
+    const file=selectedFiles[p.fileIndex];
+
+    // 현재 표시할 사진 1장에 대해서만 Object URL 생성.
+    revokeCurrentPreview();
+    if(file){
+      currentObjectURL=URL.createObjectURL(file);
+      currentPhoto.src=currentObjectURL;
+    }
+
+    caption.textContent=`${(idx+1).toLocaleString()} / ${points.length.toLocaleString()} · ${p.date?formatDate(p.date):p.name}`;
+    photoCard.classList.add('show');
+    badge.textContent=`${(idx+1).toLocaleString()} / ${points.length.toLocaleString()}`;
   }
-  function formatDate(d){return new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d)}
+
+  function formatDate(d){
+    return new Intl.DateTimeFormat('ko-KR',{
+      year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'
+    }).format(d);
+  }
 
   resizeCanvas();
 })();
