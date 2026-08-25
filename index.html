@@ -3,686 +3,390 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<title>Photo Route Animator</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
- integrity="sha256-p4NxAoJBhIINfQ3ynsKzJME3T8MZrAlQ1eO2qgR+R2M=" crossorigin=""/>
-
+<title>Photo Metadata JSON</title>
 <style>
   :root{
-    --bg:#0a0d11; --panel:#141922; --text:#f7f9fc; --muted:#9aa6b4;
-    --accent:#7dd3fc; --border:#2b3543; --danger:#ff3b30;
+    --bg:#0b0f14; --panel:#151b23; --text:#f7f9fc; --muted:#9aa6b4;
+    --border:#2a3440; --accent:#eaf4ff; --accentText:#071018; --danger:#ff4d4f;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{
+  *{box-sizing:border-box}
+  body{
     margin:0;background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Apple SD Gothic Neo","Noto Sans KR",sans-serif
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
   }
-  body{min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
-  .wrap{max-width:980px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 14px 32px}
-
+  .wrap{max-width:900px;margin:0 auto;padding:24px 14px 40px}
   .privacy{
-    background:#190d0d;border:1px solid #7f1d1d;color:#ff4d4f;border-radius:16px;
-    padding:13px 14px;margin:0 0 16px;font-weight:900;font-size:15px;line-height:1.45;text-align:center;
+    color:var(--danger);font-weight:900;text-align:center;margin-bottom:16px;line-height:1.5
   }
-  h1{font-size:31px;letter-spacing:-.04em;margin:4px 0 12px}
-
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden}
-  .picker{padding:14px}
-  input[type=file]{position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
-  .pickBtn{
-    display:flex;align-items:center;justify-content:center;width:100%;min-height:58px;border-radius:16px;border:0;
-    background:#eef7ff;color:#081018;font-weight:900;font-size:17px;cursor:pointer;
-    appearance:none;-webkit-appearance:none;
+  h1{font-size:30px;margin:0 0 16px;letter-spacing:-.04em}
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:14px
   }
-
-  .loading{
-    display:none;margin-top:14px;padding:14px;border-radius:16px;background:#0f151d;border:1px solid #263140;
+  input[type=file]{position:fixed;left:-9999px;opacity:0}
+  .pick{
+    width:100%;min-height:56px;border:0;border-radius:14px;
+    background:var(--accent);color:var(--accentText);
+    font-size:17px;font-weight:900;cursor:pointer
   }
-  .loadingTop{display:flex;align-items:center;gap:11px}
+  .loading{display:none;margin-top:14px}
+  .row{display:flex;align-items:center;gap:10px}
   .spinner{
-    width:24px;height:24px;border:3px solid rgba(255,255,255,.18);border-top-color:var(--accent);
-    border-radius:50%;animation:spin .75s linear infinite;flex:0 0 auto;
+    width:22px;height:22px;border-radius:50%;
+    border:3px solid rgba(255,255,255,.18);border-top-color:#7dd3fc;
+    animation:spin .8s linear infinite
   }
   @keyframes spin{to{transform:rotate(360deg)}}
-  .loadingTitle{font-weight:850;font-size:14px}
-  .loadingSub{font-size:12px;color:var(--muted);margin-top:3px}
-  .pulse{display:inline-block;min-width:18px}
-  .progressBar{height:9px;background:#202938;border-radius:999px;overflow:hidden;margin-top:12px}
-  .progressFill{height:100%;width:0;background:var(--accent);transition:width .12s linear}
-  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
-  .metric{background:#131b26;border-radius:11px;padding:8px 9px}
-  .metric b{display:block;font-size:15px}
-  .metric span{font-size:10px;color:var(--muted)}
-  .cancelBtn{
-    margin-top:10px;width:100%;background:#241a1d;color:#ffb4bc;border:1px solid #503039;
-    border-radius:12px;padding:9px;font-weight:750
+  .muted{font-size:13px;color:var(--muted)}
+  .bar{height:8px;background:#202938;border-radius:999px;overflow:hidden;margin-top:10px}
+  .fill{height:100%;width:0;background:#7dd3fc}
+  .summary{
+    display:none;margin-top:14px;padding:10px 12px;background:#0f141b;
+    border-radius:12px;font-size:13px;line-height:1.6
   }
-
-  .stats{display:none;margin-top:12px;padding:11px 12px;border-radius:14px;background:#10151d;font-size:13px;line-height:1.65}
-
-  .stage{margin-top:14px;position:relative}
-  #map{width:100%;height:62vh;min-height:480px;max-height:720px;background:#10151d}
-  .leaflet-container{font-family:inherit}
-  .leaflet-control-attribution{font-size:9px!important}
-
-
-  .controls{display:grid;grid-template-columns:1fr;gap:8px;padding:12px;background:#111720;border-top:1px solid var(--border)}
-  button,select{border:1px solid #344154;border-radius:13px;background:#202838;color:var(--text);font-weight:750;padding:11px 12px}
-  button.primary{background:#edf7ff;color:#081018;border-color:#edf7ff}
-  button:disabled{opacity:.4}
-
-  .clusterBadge{
-    display:flex;align-items:center;justify-content:center;
-    min-width:26px;height:26px;padding:0 8px;border-radius:999px;
-    background:#111827;color:white;border:2px solid white;
-    font-weight:800;font-size:11px;box-shadow:0 4px 14px rgba(0,0,0,.35)
+  pre{
+    margin:14px 0 0;white-space:pre-wrap;word-break:break-word;
+    background:#0b1118;border:1px solid var(--border);border-radius:14px;
+    padding:14px;min-height:220px;font-size:12px;line-height:1.55;overflow:auto
+  }
+  .actions{display:flex;gap:8px;margin-top:10px}
+  .actions button{
+    flex:1;border:1px solid #344154;border-radius:12px;background:#202838;
+    color:var(--text);font-weight:800;padding:10px
   }
 </style>
 </head>
-
 <body>
 <div class="wrap">
+  <div class="privacy">🔒 사진 원본은 브라우저 안에서만 처리하며 서버로 업로드하거나 저장하지 않습니다.</div>
+  <h1>Photo Metadata JSON</h1>
 
-  <div class="privacy">
-    🔒 사진 원본은 이 기기에서만 처리되며 서버에 업로드하거나 저장하지 않습니다. 지도 화면은 OpenStreetMap 타일을 불러옵니다.
-  </div>
-
-  <h1>Photo Route Animator</h1>
-
-  <section class="card picker">
-    <button class="pickBtn" id="pickBtn" type="button">📷 사진 여러 장 선택하기</button>
+  <div class="card">
+    <button id="pickBtn" class="pick" type="button">📷 사진 여러장 선택하기</button>
     <input id="files" type="file" accept="image/*" multiple />
 
-    <div class="loading" id="loading">
-      <div class="loadingTop">
+    <div id="loading" class="loading">
+      <div class="row">
         <div class="spinner"></div>
         <div>
-          <div class="loadingTitle">로딩중<span class="pulse" id="pulse">...</span></div>
-          <div class="loadingSub" id="loadingSub">사진 메타데이터를 분석하고 있습니다.</div>
+          <div><b>분석중...</b></div>
+          <div id="progressText" class="muted">0 / 0</div>
         </div>
       </div>
-
-      <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
-
-      <div class="metrics">
-        <div class="metric"><b id="processedCount">0</b><span>처리 완료</span></div>
-        <div class="metric"><b id="gpsCount">0</b><span>GPS 발견</span></div>
-        <div class="metric"><b id="elapsed">0초</b><span>경과 시간</span></div>
-      </div>
-
-      <button class="cancelBtn" id="cancelBtn">분석 중지</button>
+      <div class="bar"><div id="fill" class="fill"></div></div>
     </div>
 
-    <div class="stats" id="stats"></div>
-  </section>
+    <div id="summary" class="summary"></div>
 
-  <section class="card stage">
-    <div id="map"></div>
+    <pre id="output">[]</pre>
 
-    <div class="controls" style="grid-template-columns:1fr;">
-      <button id="fitMap" class="primary" disabled>🗺️ 전체 경로 보기</button>
+    <div class="actions">
+      <button id="copyBtn" type="button">JSON 복사</button>
+      <button id="downloadBtn" type="button">JSON 다운로드</button>
     </div>
-  </section>
+  </div>
 </div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
- integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
 (() => {
-  const $ = id => document.getElementById(id);
+  const fileInput = document.getElementById('files');
+  const pickBtn = document.getElementById('pickBtn');
+  const loading = document.getElementById('loading');
+  const progressText = document.getElementById('progressText');
+  const fill = document.getElementById('fill');
+  const summary = document.getElementById('summary');
+  const output = document.getElementById('output');
+  const copyBtn = document.getElementById('copyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
 
-  const fileInput=$('files'), pickBtn=$('pickBtn'), loading=$('loading'),
-        progressFill=$('progressFill'), loadingSub=$('loadingSub'),
-        processedCount=$('processedCount'), gpsCount=$('gpsCount'),
-        elapsed=$('elapsed'), pulse=$('pulse'), cancelBtn=$('cancelBtn'),
-        stats=$('stats'), fitMapBtn=$('fitMap');
+  let finalJson = [];
 
-  let selectedFiles=[], rawPoints=[], routePoints=[];
-  let cancelRequested=false, loadingTimer=null, pulseTimer=null;
-  let routeLine=null;
-  let clusterLayer=L.layerGroup();
-
-  const map=L.map('map',{
-    zoomControl:true,
-    preferCanvas:true
-  }).setView([37.5665,126.9780],11);
-
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19,
-    attribution:'© OpenStreetMap contributors'
-  }).addTo(map);
-
-  clusterLayer.addTo(map);
-
-  pickBtn.addEventListener('click',()=>{
-    fileInput.value='';
-    try{
-      if(typeof fileInput.showPicker==='function') fileInput.showPicker();
+  pickBtn.addEventListener('click', () => {
+    fileInput.value = '';
+    try {
+      if (typeof fileInput.showPicker === 'function') fileInput.showPicker();
       else fileInput.click();
-    }catch(e){ fileInput.click(); }
+    } catch {
+      fileInput.click();
+    }
   });
 
-  fileInput.addEventListener('change',e=>handleFiles(e.target.files));
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-  cancelBtn.addEventListener('click',()=>{
-    cancelRequested=true;
-    loadingSub.textContent='중지 요청을 처리하고 있습니다…';
-  });
+    loading.style.display = 'block';
+    summary.style.display = 'none';
+    output.textContent = '[]';
+    finalJson = [];
 
-  fitMapBtn.addEventListener('click',()=>{
-    if(routeLine) map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
-  });
+    const rows = [];
+    let processed = 0;
 
-  async function handleFiles(fileList){
-    cancelRequested=false;
-    selectedFiles=Array.from(fileList);
-    rawPoints=[];
-    routePoints=[];
-    clearMapLayers();
-    fitMapBtn.disabled=true;
-    stats.style.display='none';
+    for (const file of files) {
+      let meta = null;
+      try {
+        meta = await parseImageMeta(file);
+      } catch {}
 
-    if(!selectedFiles.length) return;
-
-    loading.style.display='block';
-    progressFill.style.width='0%';
-    processedCount.textContent='0';
-    gpsCount.textContent='0';
-
-    const started=performance.now();
-    loadingTimer=setInterval(()=>{
-      elapsed.textContent=Math.floor((performance.now()-started)/1000)+'초';
-    },250);
-
-    let dots=0;
-    pulseTimer=setInterval(()=>{
-      dots=(dots+1)%4;
-      pulse.textContent='.'.repeat(dots||1);
-    },350);
-
-    /*
-      1) file.lastModified를 이용해 날짜 경계를 빠르게 찾는다.
-         - 1번과 100번이 같은 날짜면 200, 300 ... 식으로 점프
-         - 날짜가 달라지는 구간이 나오면 이진 탐색으로 정확한 경계를 찾음
-      2) 실제 GPS는 각 사진별로 필요하므로, 경계가 정해진 날짜 묶음 안에서
-         100장 단위 "논리 배치"로 순차 스캔한다.
-      3) 메모리 폭주를 막기 위해 한 순간에 arrayBuffer로 여는 사진은 최대 8장.
-    */
-    const dateRanges = buildDateRangesByJumpAndBinarySearch(selectedFiles);
-
-    let processed=0,gpsFound=0,unsupported=0,errors=0;
-    const MAX_IN_FLIGHT=8;
-
-    for(const range of dateRanges){
-      if(cancelRequested) break;
-
-      for(let blockStart=range.start; blockStart<=range.end; blockStart+=100){
-        if(cancelRequested) break;
-
-        const blockEnd=Math.min(range.end,blockStart+99);
-
-        for(let miniStart=blockStart; miniStart<=blockEnd; miniStart+=MAX_IN_FLIGHT){
-          if(cancelRequested) break;
-
-          const miniEnd=Math.min(blockEnd,miniStart+MAX_IN_FLIGHT-1);
-          const jobs=[];
-
-          for(let i=miniStart;i<=miniEnd;i++){
-            jobs.push(
-              parseImageMetaLowMemory(selectedFiles[i])
-                .then(meta=>({i,meta}))
-                .catch(error=>({i,error}))
-            );
+      if (meta && meta.date && Number.isFinite(meta.lat) && Number.isFinite(meta.lng)) {
+        rows.push({
+          날짜: formatDate(meta.date),
+          위치: {
+            위도: round(meta.lat, 6),
+            경도: round(meta.lng, 6)
           }
-
-          const results=await Promise.all(jobs);
-
-          for(const r of results){
-            if(r.error){
-              errors++;
-            }else{
-              const {i,meta}=r;
-              if(Number.isFinite(meta.lat)&&Number.isFinite(meta.lng)){
-                rawPoints.push({
-                  fileIndex:i,
-                  lat:meta.lat,
-                  lng:meta.lng,
-                  date:meta.date || new Date(selectedFiles[i].lastModified||Date.now()),
-                  name:selectedFiles[i].name
-                });
-                gpsFound++;
-              }else if(meta.unsupported){
-                unsupported++;
-              }
-            }
-            processed++;
-          }
-
-          const pct=processed/selectedFiles.length*100;
-          progressFill.style.width=pct.toFixed(2)+'%';
-          processedCount.textContent=processed.toLocaleString();
-          gpsCount.textContent=gpsFound.toLocaleString();
-          loadingSub.textContent=
-            `${processed.toLocaleString()} / ${selectedFiles.length.toLocaleString()}장 분석 중 · 날짜 묶음 ${range.label}`;
-
-          await new Promise(requestAnimationFrame);
-        }
-      }
-    }
-
-    clearInterval(loadingTimer);
-    clearInterval(pulseTimer);
-
-    rawPoints.sort((a,b)=>(a.date?.getTime()||0)-(b.date?.getTime()||0));
-    routePoints=clusterNearbyPoints(rawPoints);
-
-    loading.style.display='none';
-    stats.style.display='block';
-
-    if(rawPoints.length===0){
-      stats.innerHTML=
-        `<b>GPS 위치정보를 찾지 못했습니다.</b><br>`+
-        `iPhone 사진 선택창에서 상단의 <b>옵션</b>을 누른 뒤 <b>위치(Location)</b>를 포함하고 다시 선택해주세요.`+
-        (unsupported?`<br>브라우저가 직접 읽지 못한 형식: ${unsupported.toLocaleString()}장`:'');
-    }else{
-      stats.innerHTML=
-        `${cancelRequested?'분석이 중지되었습니다.':'분석 완료.'} `+
-        `지도에 <b>${routePoints.length.toLocaleString()}</b>개 위치 포인트를 표시했습니다.`+
-        (errors?` · 오류 <b>${errors.toLocaleString()}</b>장`:'');
-    }
-
-    drawRoute();
-    fitMapBtn.disabled=!routeLine;
-  }
-
-  function dayKeyFromFile(file){
-    const d=new Date(file.lastModified||0);
-    if(Number.isNaN(d.getTime())) return 'unknown';
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  function buildDateRangesByJumpAndBinarySearch(files){
-    const n=files.length;
-    if(!n) return [];
-
-    const ranges=[];
-    let start=0;
-
-    while(start<n){
-      const startDay=dayKeyFromFile(files[start]);
-      let probe=Math.min(start+99,n-1);
-
-      if(dayKeyFromFile(files[probe])===startDay){
-        // 100장 단위로 계속 점프
-        let lastSame=probe;
-        let next=probe;
-
-        while(next<n-1){
-          next=Math.min(next+100,n-1);
-          if(dayKeyFromFile(files[next])===startDay){
-            lastSame=next;
-            if(next===n-1) break;
-          }else{
-            break;
-          }
-        }
-
-        if(lastSame===n-1 && dayKeyFromFile(files[lastSame])===startDay){
-          ranges.push({start,end:n-1,label:startDay});
-          break;
-        }
-
-        // lastSame ~ next 사이에서 날짜가 바뀌는 첫 인덱스를 이진탐색
-        let lo=lastSame+1;
-        let hi=next;
-        while(lo<hi){
-          const mid=Math.floor((lo+hi)/2);
-          if(dayKeyFromFile(files[mid])===startDay) lo=mid+1;
-          else hi=mid;
-        }
-
-        ranges.push({start,end:lo-1,label:startDay});
-        start=lo;
-      }else{
-        // start ~ probe 사이에 경계가 있으므로 이진탐색
-        let lo=start+1;
-        let hi=probe;
-        while(lo<hi){
-          const mid=Math.floor((lo+hi)/2);
-          if(dayKeyFromFile(files[mid])===startDay) lo=mid+1;
-          else hi=mid;
-        }
-
-        ranges.push({start,end:lo-1,label:startDay});
-        start=lo;
-      }
-    }
-
-    return ranges;
-  }
-
-  function clusterNearbyPoints(points){
-    if(!points.length) return [];
-
-    const LAT_CELL=0.00018;
-    const LNG_CELL=0.00022;
-    const buckets=new Map();
-
-    for(const p of points){
-      const key=Math.round(p.lat/LAT_CELL)+':'+Math.round(p.lng/LNG_CELL);
-      let b=buckets.get(key);
-
-      if(!b){
-        b={
-          latSum:0,lngSum:0,count:0,
-          firstDate:p.date,lastDate:p.date
-        };
-        buckets.set(key,b);
-      }
-
-      b.latSum+=p.lat;
-      b.lngSum+=p.lng;
-      b.count++;
-
-      if(p.date<b.firstDate) b.firstDate=p.date;
-      if(p.date>b.lastDate) b.lastDate=p.date;
-    }
-
-    const clustered=[...buckets.values()].map(b=>({
-      lat:b.latSum/b.count,
-      lng:b.lngSum/b.count,
-      date:b.firstDate,
-      endDate:b.lastDate,
-      count:b.count
-    }));
-
-    clustered.sort((a,b)=>a.date-b.date);
-
-    const merged=[];
-    const MERGE_METERS=30;
-
-    for(const p of clustered){
-      const prev=merged[merged.length-1];
-
-      if(prev&&haversine(prev.lat,prev.lng,p.lat,p.lng)<=MERGE_METERS){
-        const total=prev.count+p.count;
-        prev.lat=(prev.lat*prev.count+p.lat*p.count)/total;
-        prev.lng=(prev.lng*prev.count+p.lng*p.count)/total;
-        prev.count=total;
-        prev.endDate=p.endDate>prev.endDate?p.endDate:prev.endDate;
-      }else{
-        merged.push({...p});
-      }
-    }
-
-    return merged;
-  }
-
-  function haversine(lat1,lng1,lat2,lng2){
-    const R=6371000;
-    const toRad=x=>x*Math.PI/180;
-    const dLat=toRad(lat2-lat1);
-    const dLng=toRad(lng2-lng1);
-
-    const a=Math.sin(dLat/2)**2+
-      Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
-
-    return 2*R*Math.asin(Math.sqrt(a));
-  }
-
-  function drawRoute(){
-    clearMapLayers();
-
-    if(!routePoints.length) return;
-
-    const latlngs=routePoints.map(p=>[p.lat,p.lng]);
-
-    // 시간순 이동 흐름은 얇은 선으로만 보여주고, 핵심은 각 위치 점
-    if(routePoints.length>=2){
-      routeLine=L.polyline(latlngs,{
-        color:'#64748b',
-        weight:3,
-        opacity:.55
-      }).addTo(map);
-    }else{
-      routeLine=L.featureGroup();
-    }
-
-    for(const p of routePoints){
-      if(p.count>1){
-        const icon=L.divIcon({
-          className:'',
-          html:`<div class="clusterBadge">${p.count}</div>`,
-          iconSize:[30,30],
-          iconAnchor:[15,15]
         });
+      }
 
-        L.marker([p.lat,p.lng],{icon})
-          .bindPopup(`<b>${p.count.toLocaleString()}장의 사진</b><br>${formatDate(p.date)}`)
-          .addTo(clusterLayer);
-      }else{
-        L.circleMarker([p.lat,p.lng],{
-          radius:6,
-          color:'#fff',
-          weight:2,
-          fillColor:'#2563eb',
-          fillOpacity:1
-        })
-        .bindPopup(formatDate(p.date))
-        .addTo(clusterLayer);
+      processed++;
+      progressText.textContent = `${processed.toLocaleString()} / ${files.length.toLocaleString()}`;
+      fill.style.width = `${(processed / files.length) * 100}%`;
+
+      if (processed % 10 === 0) {
+        await new Promise(requestAnimationFrame);
       }
     }
 
-    if(routePoints.length===1){
-      map.setView(latlngs[0],15);
-    }else{
-      map.fitBounds(L.latLngBounds(latlngs),{padding:[35,35]});
-    }
-  }
+    // 날짜 + 위도 + 경도가 모두 같은 항목 제거
+    const seen = new Set();
+    finalJson = rows.filter(item => {
+      const key = `${item.날짜}|${item.위치.위도}|${item.위치.경도}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
-  function clearMapLayers(){
-    if(routeLine&&map.hasLayer(routeLine)){
-      map.removeLayer(routeLine);
-    }
-    routeLine=null;
-    clusterLayer.clearLayers();
-  }
+    loading.style.display = 'none';
+    summary.style.display = 'block';
+    summary.innerHTML =
+      `선택한 사진 <b>${files.length.toLocaleString()}</b>장 · ` +
+      `날짜/위치 확인 <b>${rows.length.toLocaleString()}</b>장 · ` +
+      `중복 제거 후 <b>${finalJson.length.toLocaleString()}</b>개`;
 
-  async function parseImageMetaLowMemory(file){
-    const isJPEG=/image\/jpeg/i.test(file.type)||/\.jpe?g$/i.test(file.name);
+    output.textContent = JSON.stringify(finalJson, null, 2);
+  });
 
-    if(!isJPEG){
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(finalJson, null, 2));
+      copyBtn.textContent = '복사됨';
+      setTimeout(() => copyBtn.textContent = 'JSON 복사', 1200);
+    } catch {}
+  });
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(finalJson, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'photo-metadata.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  async function parseImageMeta(file) {
+    const isJPEG = /image\/jpeg/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+
+    if (!isJPEG) {
       return {
-        lat:null,lng:null,
-        date:new Date(file.lastModified||Date.now()),
-        unsupported:true
+        date: new Date(file.lastModified || Date.now()),
+        lat: null,
+        lng: null
       };
     }
 
-    const MAX_HEADER=512*1024;
-    const slice=file.slice(0,Math.min(file.size,MAX_HEADER));
-    const buf=await slice.arrayBuffer();
-    return parseJpegExifBuffer(buf,file);
+    const MAX_HEADER = 512 * 1024;
+    const buf = await file.slice(0, Math.min(file.size, MAX_HEADER)).arrayBuffer();
+    return parseJpegExifBuffer(buf, file);
   }
 
-  function parseJpegExifBuffer(buf,file){
-    const dv=new DataView(buf);
-    if(dv.byteLength<4||dv.getUint16(0,false)!==0xFFD8) throw new Error('JPEG 아님');
+  function parseJpegExifBuffer(buf, file) {
+    const dv = new DataView(buf);
+    if (dv.byteLength < 4 || dv.getUint16(0, false) !== 0xFFD8) {
+      return {date:new Date(file.lastModified || Date.now()), lat:null, lng:null};
+    }
 
-    let offset=2,result={lat:null,lng:null,date:null};
+    let offset = 2;
+    let result = {date:null, lat:null, lng:null};
 
-    while(offset+4<dv.byteLength){
-      if(dv.getUint8(offset)!==0xFF){offset++;continue;}
+    while (offset + 4 < dv.byteLength) {
+      if (dv.getUint8(offset) !== 0xFF) {
+        offset++;
+        continue;
+      }
 
-      const marker=dv.getUint8(offset+1);
-      offset+=2;
+      const marker = dv.getUint8(offset + 1);
+      offset += 2;
 
-      if(marker===0xD9||marker===0xDA) break;
-      if(offset+2>dv.byteLength) break;
+      if (marker === 0xD9 || marker === 0xDA) break;
+      if (offset + 2 > dv.byteLength) break;
 
-      const len=dv.getUint16(offset,false);
-      if(len<2||offset+len>dv.byteLength) break;
+      const len = dv.getUint16(offset, false);
+      if (len < 2 || offset + len > dv.byteLength) break;
 
-      if(marker===0xE1&&len>=8){
-        const start=offset+2;
+      if (marker === 0xE1 && len >= 8) {
+        const start = offset + 2;
+        const sig = String.fromCharCode(
+          dv.getUint8(start),
+          dv.getUint8(start + 1),
+          dv.getUint8(start + 2),
+          dv.getUint8(start + 3)
+        );
 
-        if(start+6<=dv.byteLength){
-          const sig=String.fromCharCode(
-            dv.getUint8(start),dv.getUint8(start+1),
-            dv.getUint8(start+2),dv.getUint8(start+3)
-          );
-
-          if(sig==='Exif'){
-            result={...result,...parseTiff(dv,start+6)};
-            break;
-          }
+        if (sig === 'Exif') {
+          result = {...result, ...parseTiff(dv, start + 6)};
+          break;
         }
       }
 
-      offset+=len;
+      offset += len;
     }
 
-    if(!result.date) result.date=new Date(file.lastModified||Date.now());
+    if (!result.date) result.date = new Date(file.lastModified || Date.now());
     return result;
   }
 
-  function parseTiff(dv,tiff){
-    if(tiff+8>dv.byteLength) return {lat:null,lng:null,date:null};
+  function parseTiff(dv, tiff) {
+    if (tiff + 8 > dv.byteLength) return {date:null, lat:null, lng:null};
 
-    const little=dv.getUint16(tiff,false)===0x4949;
-    const u16=o=>dv.getUint16(o,little);
-    const u32=o=>dv.getUint32(o,little);
+    const little = dv.getUint16(tiff, false) === 0x4949;
+    const u16 = o => dv.getUint16(o, little);
+    const u32 = o => dv.getUint32(o, little);
 
-    if(u16(tiff+2)!==42) return {lat:null,lng:null,date:null};
+    if (u16(tiff + 2) !== 42) return {date:null, lat:null, lng:null};
 
-    const out={lat:null,lng:null,date:null};
-    const ifd0=tiff+u32(tiff+4);
-    let exifPtr=null,gpsPtr=null;
+    const out = {date:null, lat:null, lng:null};
+    const ifd0 = tiff + u32(tiff + 4);
+    let exifPtr = null;
+    let gpsPtr = null;
 
-    readIFD(ifd0,(tag,type,count,valOff)=>{
-      if(tag===0x8769) exifPtr=tiff+valueAsUint(type,valOff);
-      if(tag===0x8825) gpsPtr=tiff+valueAsUint(type,valOff);
-      if(tag===0x0132){
-        const d=parseExifDate(readAscii(type,count,valOff));
-        if(d) out.date=d;
+    readIFD(ifd0, (tag, type, count, valOff) => {
+      if (tag === 0x8769) exifPtr = tiff + valueAsUint(type, valOff);
+      if (tag === 0x8825) gpsPtr = tiff + valueAsUint(type, valOff);
+
+      if (tag === 0x0132) {
+        const d = parseExifDate(readAscii(type, count, valOff));
+        if (d) out.date = d;
       }
     });
 
-    if(exifPtr){
-      readIFD(exifPtr,(tag,type,count,valOff)=>{
-        if(tag===0x9003||tag===0x9004){
-          const d=parseExifDate(readAscii(type,count,valOff));
-          if(d) out.date=d;
+    if (exifPtr) {
+      readIFD(exifPtr, (tag, type, count, valOff) => {
+        if (tag === 0x9003 || tag === 0x9004) {
+          const d = parseExifDate(readAscii(type, count, valOff));
+          if (d) out.date = d;
         }
       });
     }
 
-    if(gpsPtr){
-      let latRef,lngRef,lat,lng;
+    if (gpsPtr) {
+      let latRef, lngRef, lat, lng;
 
-      readIFD(gpsPtr,(tag,type,count,valOff)=>{
-        if(tag===1) latRef=readAscii(type,count,valOff);
-        if(tag===2) lat=readRationals(type,count,valOff);
-        if(tag===3) lngRef=readAscii(type,count,valOff);
-        if(tag===4) lng=readRationals(type,count,valOff);
+      readIFD(gpsPtr, (tag, type, count, valOff) => {
+        if (tag === 1) latRef = readAscii(type, count, valOff);
+        if (tag === 2) lat = readRationals(type, count, valOff);
+        if (tag === 3) lngRef = readAscii(type, count, valOff);
+        if (tag === 4) lng = readRationals(type, count, valOff);
       });
 
-      if(lat?.length>=3&&lng?.length>=3){
-        out.lat=dms(lat)*(latRef?.trim().startsWith('S')?-1:1);
-        out.lng=dms(lng)*(lngRef?.trim().startsWith('W')?-1:1);
+      if (lat?.length >= 3 && lng?.length >= 3) {
+        out.lat = dms(lat) * (latRef?.trim().startsWith('S') ? -1 : 1);
+        out.lng = dms(lng) * (lngRef?.trim().startsWith('W') ? -1 : 1);
       }
     }
 
     return out;
 
-    function safeRange(o,n=1){return o>=0&&o+n<=dv.byteLength}
+    function safeRange(o, n = 1) {
+      return o >= 0 && o + n <= dv.byteLength;
+    }
 
-    function readIFD(off,cb){
-      if(!Number.isFinite(off)||!safeRange(off,2)) return;
-      const n=u16(off);
+    function readIFD(off, cb) {
+      if (!Number.isFinite(off) || !safeRange(off, 2)) return;
 
-      for(let i=0;i<n;i++){
-        const e=off+2+i*12;
-        if(!safeRange(e,12)) break;
-        cb(u16(e),u16(e+2),u32(e+4),e+8);
+      const n = u16(off);
+      for (let i = 0; i < n; i++) {
+        const e = off + 2 + i * 12;
+        if (!safeRange(e, 12)) break;
+        cb(u16(e), u16(e + 2), u32(e + 4), e + 8);
       }
     }
 
-    function typeSize(t){
-      return({1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8})[t]||1;
+    function typeSize(t) {
+      return ({1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8})[t] || 1;
     }
 
-    function dataOffset(type,count,valOff){
-      const bytes=typeSize(type)*count;
-      if(bytes<=4) return valOff;
-      if(!safeRange(valOff,4)) return -1;
-      return tiff+u32(valOff);
+    function dataOffset(type, count, valOff) {
+      const bytes = typeSize(type) * count;
+      if (bytes <= 4) return valOff;
+      if (!safeRange(valOff, 4)) return -1;
+      return tiff + u32(valOff);
     }
 
-    function valueAsUint(type,valOff){
-      if(type===3&&safeRange(valOff,2)) return u16(valOff);
-      if(safeRange(valOff,4)) return u32(valOff);
+    function valueAsUint(type, valOff) {
+      if (type === 3 && safeRange(valOff, 2)) return u16(valOff);
+      if (safeRange(valOff, 4)) return u32(valOff);
       return 0;
     }
 
-    function readAscii(type,count,valOff){
-      const o=dataOffset(type,count,valOff);
-      if(o<0) return '';
+    function readAscii(type, count, valOff) {
+      const o = dataOffset(type, count, valOff);
+      if (o < 0) return '';
 
-      let s='';
-      for(let i=0;i<count&&safeRange(o+i,1);i++){
-        const c=dv.getUint8(o+i);
-        if(!c) break;
-        s+=String.fromCharCode(c);
+      let s = '';
+      for (let i = 0; i < count && safeRange(o + i, 1); i++) {
+        const c = dv.getUint8(o + i);
+        if (!c) break;
+        s += String.fromCharCode(c);
       }
       return s;
     }
 
-    function readRationals(type,count,valOff){
-      const o=dataOffset(type,count,valOff),arr=[];
-      if(o<0||(type!==5&&type!==10)) return arr;
+    function readRationals(type, count, valOff) {
+      const o = dataOffset(type, count, valOff);
+      const arr = [];
 
-      for(let i=0;i<count;i++){
-        const p=o+i*8;
-        if(!safeRange(p,8)) break;
+      if (o < 0 || (type !== 5 && type !== 10)) return arr;
 
-        let num,den;
-        if(type===10){
-          num=dv.getInt32(p,little);
-          den=dv.getInt32(p+4,little);
-        }else{
-          num=u32(p);
-          den=u32(p+4);
+      for (let i = 0; i < count; i++) {
+        const p = o + i * 8;
+        if (!safeRange(p, 8)) break;
+
+        let num, den;
+        if (type === 10) {
+          num = dv.getInt32(p, little);
+          den = dv.getInt32(p + 4, little);
+        } else {
+          num = u32(p);
+          den = u32(p + 4);
         }
 
-        arr.push(den?num/den:0);
+        arr.push(den ? num / den : 0);
       }
 
       return arr;
     }
   }
 
-  function dms(a){
-    return a[0]+a[1]/60+a[2]/3600;
+  function dms(a) {
+    return a[0] + a[1] / 60 + a[2] / 3600;
   }
 
-  function parseExifDate(s){
-    const m=(s||'').trim().match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
-    if(!m) return null;
-    return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);
+  function parseExifDate(s) {
+    const m = (s || '').trim().match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+    if (!m) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
   }
 
-  function formatDate(d){
-    return new Intl.DateTimeFormat('ko-KR',{
-      year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'
-    }).format(d);
+  function formatDate(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
-  setTimeout(()=>map.invalidateSize(),200);
+  function round(n, digits) {
+    const p = 10 ** digits;
+    return Math.round(n * p) / p;
+  }
 })();
 </script>
 </body>
