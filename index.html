@@ -119,49 +119,71 @@
     output.textContent = '[]';
     finalJson = [];
 
-    const rows = [];
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const concurrency = isIOS ? 8 : 24;
+
+    let cursor = 0;
     let processed = 0;
+    let validCount = 0;
 
-    for (const file of files) {
-      let meta = null;
-      try {
-        meta = await parseImageMeta(file);
-      } catch {}
+    // 처리 즉시 중복 제거: 같은 [날짜, 위도, 경도]는 처음 것만 유지
+    const unique = new Map();
 
-      if (meta && meta.date && Number.isFinite(meta.lat) && Number.isFinite(meta.lng)) {
-        rows.push({
-          날짜: formatDate(meta.date),
-          위치: {
-            위도: round(meta.lat, 6),
-            경도: round(meta.lng, 6)
+    async function worker() {
+      while (true) {
+        const index = cursor++;
+        if (index >= files.length) break;
+
+        const file = files[index];
+
+        try {
+          const meta = await parseImageMeta(file);
+
+          if (meta && meta.date && Number.isFinite(meta.lat) && Number.isFinite(meta.lng)) {
+            const item = {
+              날짜: formatDate(meta.date),
+              위치: {
+                위도: round(meta.lat, 6),
+                경도: round(meta.lng, 6)
+              }
+            };
+
+            validCount++;
+
+            const key = `${item.날짜}|${item.위치.위도}|${item.위치.경도}`;
+            if (!unique.has(key)) unique.set(key, item);
           }
-        });
-      }
+        } catch {}
 
-      processed++;
-      progressText.textContent = `${processed.toLocaleString()} / ${files.length.toLocaleString()}`;
-      fill.style.width = `${(processed / files.length) * 100}%`;
+        processed++;
 
-      if (processed % 10 === 0) {
-        await new Promise(requestAnimationFrame);
+        // 여러 worker가 동시에 끝나므로 UI 갱신은 너무 자주 하지 않도록 제한
+        if (processed % 5 === 0 || processed === files.length) {
+          progressText.textContent =
+            `${processed.toLocaleString()} / ${files.length.toLocaleString()} · ` +
+            `${concurrency}개 병렬 처리`;
+          fill.style.width = `${(processed / files.length) * 100}%`;
+          await new Promise(requestAnimationFrame);
+        }
       }
     }
 
-    // 날짜 + 위도 + 경도가 모두 같은 항목 제거
-    const seen = new Set();
-    finalJson = rows.filter(item => {
-      const key = `${item.날짜}|${item.위치.위도}|${item.위치.경도}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    await Promise.all(
+      Array.from(
+        { length: Math.min(concurrency, files.length) },
+        () => worker()
+      )
+    );
+
+    finalJson = Array.from(unique.values());
 
     loading.style.display = 'none';
     summary.style.display = 'block';
     summary.innerHTML =
       `선택한 사진 <b>${files.length.toLocaleString()}</b>장 · ` +
-      `날짜/위치 확인 <b>${rows.length.toLocaleString()}</b>장 · ` +
-      `중복 제거 후 <b>${finalJson.length.toLocaleString()}</b>개`;
+      `날짜/위치 확인 <b>${validCount.toLocaleString()}</b>장 · ` +
+      `중복 제거 후 <b>${finalJson.length.toLocaleString()}</b>개 · ` +
+      `동시 처리 <b>${concurrency}</b>개`;
 
     output.textContent = JSON.stringify(finalJson, null, 2);
   });
