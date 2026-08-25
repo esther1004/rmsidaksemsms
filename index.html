@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Photo Metadata JSON</title>
+<title>Fast Photo Location Sampler</title>
 <style>
   :root{
     --bg:#0b0f14; --panel:#151b23; --text:#f7f9fc; --muted:#9aa6b4;
@@ -15,13 +15,10 @@
     font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
   }
   .wrap{max-width:900px;margin:0 auto;padding:24px 14px 40px}
-  .privacy{
-    color:var(--danger);font-weight:900;text-align:center;margin-bottom:16px;line-height:1.5
-  }
-  h1{font-size:30px;margin:0 0 16px;letter-spacing:-.04em}
-  .card{
-    background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:14px
-  }
+  .privacy{color:var(--danger);font-weight:900;text-align:center;margin-bottom:12px;line-height:1.5}
+  .note{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:14px}
+  h1{font-size:30px;margin:0 0 14px;letter-spacing:-.04em}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:14px}
   input[type=file]{position:fixed;left:-9999px;opacity:0}
   .pick{
     width:100%;min-height:56px;border:0;border-radius:14px;
@@ -58,7 +55,8 @@
 <body>
 <div class="wrap">
   <div class="privacy">🔒 사진 원본은 브라우저 안에서만 처리하며 서버로 업로드하거나 저장하지 않습니다.</div>
-  <h1>Photo Metadata JSON</h1>
+  <div class="note">이 버전은 10,000장 전수조사가 아니라 대표 지점을 빠르게 추출하는 샘플링 방식입니다. 모든 사진의 위치를 빠짐없이 보장하지는 않습니다.</div>
+  <h1>Fast Photo Location Sampler</h1>
 
   <div class="card">
     <button id="pickBtn" class="pick" type="button">📷 사진 여러장 선택하기</button>
@@ -68,8 +66,8 @@
       <div class="row">
         <div class="spinner"></div>
         <div>
-          <div><b>분석중...</b></div>
-          <div id="progressText" class="muted">0 / 0</div>
+          <div><b>빠르게 대표 지점 추출중...</b></div>
+          <div id="progressText" class="muted">준비중</div>
         </div>
       </div>
       <div class="bar"><div id="fill" class="fill"></div></div>
@@ -118,72 +116,151 @@
     summary.style.display = 'none';
     output.textContent = '[]';
     finalJson = [];
+    fill.style.width = '0%';
 
+    const t0 = performance.now();
+
+    // 목표: 전체의 약 1~3%만 실제 EXIF 읽기.
+    // 기본 간격은 파일 수에 따라 자동 조정.
+    const targetSamples = files.length <= 1000 ? Math.min(files.length, 300) : 500;
+    const stride = Math.max(1, Math.floor(files.length / targetSamples));
+
+    const candidateIndexes = new Set();
+
+    // 1) 균등 점프 샘플
+    for (let i = 0; i < files.length; i += stride) candidateIndexes.add(i);
+    candidateIndexes.add(files.length - 1);
+
+    // 2) 날짜 경계 탐색용 동적 점프 + 이진 탐색
+    // 사진 수가 적으면 촘촘하게, 많으면 더 크게 점프
+    const jump = getDynamicJump(files.length);
+    const dateBoundaries = findDateBoundaries(files, jump);
+    for (const idx of dateBoundaries) {
+      candidateIndexes.add(idx);
+      if (idx > 0) candidateIndexes.add(idx - 1);
+      if (idx + 1 < files.length) candidateIndexes.add(idx + 1);
+    }
+
+    // 3) 날짜 구간마다 첫/중간/끝 보강
+    const ranges = buildDateRanges(files, dateBoundaries);
+    for (const r of ranges) {
+      candidateIndexes.add(r.start);
+      candidateIndexes.add(Math.floor((r.start + r.end) / 2));
+      candidateIndexes.add(r.end);
+    }
+
+    const candidates = [...candidateIndexes].sort((a,b)=>a-b);
+
+    // 실제 EXIF 읽기는 제한 병렬
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const concurrency = isIOS ? 8 : 24;
+    const concurrency = isIOS ? 10 : 24;
 
     let cursor = 0;
-    let processed = 0;
-    let validCount = 0;
-
-    // 처리 즉시 중복 제거: 같은 [날짜, 위도, 경도]는 처음 것만 유지
+    let done = 0;
     const unique = new Map();
+    const sampled = [];
 
     async function worker() {
       while (true) {
-        const index = cursor++;
-        if (index >= files.length) break;
+        const pos = cursor++;
+        if (pos >= candidates.length) break;
 
+        const index = candidates[pos];
         const file = files[index];
 
         try {
           const meta = await parseImageMeta(file);
-
           if (meta && meta.date && Number.isFinite(meta.lat) && Number.isFinite(meta.lng)) {
-            const item = {
-              날짜: formatDate(meta.date),
-              위치: {
-                위도: round(meta.lat, 6),
-                경도: round(meta.lng, 6)
-              }
-            };
-
-            validCount++;
-
-            const key = `${item.날짜}|${item.위치.위도}|${item.위치.경도}`;
-            if (!unique.has(key)) unique.set(key, item);
+            sampled.push({index, meta});
           }
         } catch {}
 
-        processed++;
-
-        // 여러 worker가 동시에 끝나므로 UI 갱신은 너무 자주 하지 않도록 제한
-        if (processed % 5 === 0 || processed === files.length) {
+        done++;
+        if (done % 5 === 0 || done === candidates.length) {
           progressText.textContent =
-            `${processed.toLocaleString()} / ${files.length.toLocaleString()} · ` +
-            `${concurrency}개 병렬 처리`;
-          fill.style.width = `${(processed / files.length) * 100}%`;
+            `대표 샘플 ${done.toLocaleString()} / ${candidates.length.toLocaleString()} 분석`;
+          fill.style.width = `${(done / candidates.length) * 100}%`;
           await new Promise(requestAnimationFrame);
         }
       }
     }
 
     await Promise.all(
-      Array.from(
-        { length: Math.min(concurrency, files.length) },
-        () => worker()
-      )
+      Array.from({length: Math.min(concurrency, candidates.length)}, () => worker())
     );
+
+    sampled.sort((a,b)=>a.index-b.index);
+
+    // 4) 위치 변화가 큰 인접 샘플 사이만 추가 중간 탐색
+    const extraIndexes = new Set();
+    for (let i = 0; i < sampled.length - 1; i++) {
+      const a = sampled[i], b = sampled[i+1];
+      const gap = b.index - a.index;
+      const dist = haversine(a.meta.lat, a.meta.lng, b.meta.lat, b.meta.lng);
+
+      // 사진 인덱스 간격이 크고 위치도 크게 바뀌면 중간점 보강
+      if (gap >= 20 && dist >= 1000) {
+        extraIndexes.add(Math.floor((a.index + b.index) / 2));
+      }
+    }
+
+    if (extraIndexes.size) {
+      const extras = [...extraIndexes];
+      let extraDone = 0;
+      let extraCursor = 0;
+
+      async function extraWorker() {
+        while (true) {
+          const p = extraCursor++;
+          if (p >= extras.length) break;
+          const index = extras[p];
+
+          try {
+            const meta = await parseImageMeta(files[index]);
+            if (meta && meta.date && Number.isFinite(meta.lat) && Number.isFinite(meta.lng)) {
+              sampled.push({index, meta});
+            }
+          } catch {}
+
+          extraDone++;
+          progressText.textContent =
+            `위치 변화 보강 ${extraDone.toLocaleString()} / ${extras.length.toLocaleString()}`;
+          await new Promise(requestAnimationFrame);
+        }
+      }
+
+      await Promise.all(
+        Array.from({length: Math.min(concurrency, extras.length)}, () => extraWorker())
+      );
+    }
+
+    sampled.sort((a,b)=>a.index-b.index);
+
+    // 5) 날짜 + 좌표 중복 제거
+    for (const s of sampled) {
+      const item = {
+        날짜: formatDate(s.meta.date),
+        위치: {
+          위도: round(s.meta.lat, 6),
+          경도: round(s.meta.lng, 6)
+        }
+      };
+      const key = `${item.날짜}|${item.위치.위도}|${item.위치.경도}`;
+      if (!unique.has(key)) unique.set(key, item);
+    }
 
     finalJson = Array.from(unique.values());
 
     loading.style.display = 'none';
     summary.style.display = 'block';
+
+    const elapsedSec = ((performance.now() - t0) / 1000).toFixed(1);
     summary.innerHTML =
-      `선택한 사진 <b>${files.length.toLocaleString()}</b>장 · ` +
-      `날짜/위치 확인 <b>${validCount.toLocaleString()}</b>장 · ` +
-      `중복 제거 후 <b>${finalJson.length.toLocaleString()}</b>개 · ` +
-      `동시 처리 <b>${concurrency}</b>개`;
+      `전체 <b>${files.length.toLocaleString()}</b>장 중 ` +
+      `동적 시작 점프 <b>${jump.toLocaleString()}</b>장 · ` +
+      `실제 EXIF 확인 <b>${sampled.length.toLocaleString()}</b>장 · ` +
+      `대표 지점 <b>${finalJson.length.toLocaleString()}</b>개 · ` +
+      `소요 <b>${elapsedSec}초</b>`;
 
     output.textContent = JSON.stringify(finalJson, null, 2);
   });
@@ -201,10 +278,80 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'photo-metadata.json';
+    a.download = 'photo-location-samples.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
+
+  function dayKey(file) {
+    const d = new Date(file.lastModified || 0);
+    if (Number.isNaN(d.getTime())) return 'unknown';
+    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+  }
+
+  function getDynamicJump(n) {
+    // 예시:
+    // 100장  -> 약 10장 단위
+    // 300장  -> 약 20장 단위
+    // 1,000장 -> 약 35장 단위
+    // 3,000장 -> 약 60장 단위
+    // 10,000장 -> 약 100장 단위
+    // 20,000장 -> 약 140장 단위
+    //
+    // sqrt 기반이라 n이 커질수록 완만하게 증가한다.
+    return Math.max(10, Math.round(Math.sqrt(n)));
+  }
+
+  function findDateBoundaries(files, baseJump) {
+    const out = [];
+    let start = 0;
+
+    while (start < files.length - 1) {
+      const day = dayKey(files[start]);
+
+      // 시작은 baseJump, 같은 날짜가 계속되면 점프 폭을 점점 키운다.
+      // 예: n=100이면 대략 10 -> 20 -> 40 ...
+      // 날짜가 바뀌는 구간을 찾으면 바로 이진 탐색으로 정확한 경계를 찾는다.
+      let jump = baseJump;
+      let prev = start;
+      let probe = Math.min(start + jump, files.length - 1);
+
+      while (probe < files.length - 1 && dayKey(files[probe]) === day) {
+        prev = probe;
+        jump = Math.min(jump * 2, Math.max(baseJump, files.length - start));
+        probe = Math.min(start + jump, files.length - 1);
+      }
+
+      if (dayKey(files[probe]) === day) break;
+
+      let lo = prev + 1;
+      let hi = probe;
+
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (dayKey(files[mid]) === day) lo = mid + 1;
+        else hi = mid;
+      }
+
+      out.push(lo);
+      start = lo;
+    }
+
+    return out;
+  }
+
+  function buildDateRanges(files, boundaries) {
+    if (!files.length) return [];
+    const ranges = [];
+    let start = 0;
+
+    for (const b of boundaries) {
+      ranges.push({start, end: b - 1});
+      start = b;
+    }
+    ranges.push({start, end: files.length - 1});
+    return ranges;
+  }
 
   async function parseImageMeta(file) {
     const isJPEG = /image\/jpeg/i.test(file.type) || /\.jpe?g$/i.test(file.name);
@@ -388,6 +535,18 @@
 
       return arr;
     }
+  }
+
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
   }
 
   function dms(a) {
